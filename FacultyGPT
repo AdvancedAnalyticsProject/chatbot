@@ -1,1 +1,47 @@
+import os
+import requests
+import logging
+import azure.functions as func
 
+openai_api_key = os.environ['OPENAI_API_KEY']
+
+def main(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a request.')
+    text = req.params.get('text')
+
+    if not text:
+        try:
+            req_body = req.get_json()
+        except ValueError:
+            pass
+        else:
+            text = req_body.get('text')
+
+    if text:
+        response = generate_chat_response(text)
+        return func.HttpResponse(response)
+    else:
+        return func.HttpResponse(
+             "Please pass a 'text' parameter in the request.",
+             status_code=400
+        )
+
+def generate_chat_response(text):
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {openai_api_key}'
+    }
+
+    data = {
+        "model": "text-davinci-002",
+        "prompt": text,
+        "temperature": 0.5,
+        "max_tokens": 60
+    }
+
+    response = requests.post('https://api.openai.com/v1/engines/davinci-codex/completions', headers=headers, json=data)
+
+    if response.status_code == 200:
+        return response.json()['choices'][0]['text']
+    else:
+        return "Error generating chat response"
